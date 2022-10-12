@@ -1,0 +1,45 @@
+#!/usr/bin/make -f
+
+binary: binary-indep
+
+export SOURCE_DATE_EPOCH = $(shell date -d "$$(dpkg-parsechangelog --count 1 -SDate)" +%s)
+
+binary-arch:
+
+binary-indep:
+	install -d debian/tmp/usr/bin debian/tmp/usr/share/perl5/Text
+	install Markdown.pl debian/tmp/usr/bin/markdown
+	ln -sf ../../../bin/markdown \
+           debian/tmp/usr/share/perl5/Text/Markdown.pm
+
+	install -d debian/tmp/usr/share/man/man1 
+	install -d debian/tmp/usr/share/man/man3
+	install -m 644 markdown.1 debian/tmp/usr/share/man/man1/markdown.1
+	gzip -9n debian/tmp/usr/share/man/man1/markdown.1
+	ln -sf ../man1/markdown.1.gz \
+		debian/tmp/usr/share/man/man3/Markdown.3.gz
+
+	install -d debian/tmp/usr/share/doc/markdown
+	install -m 644 debian/changelog \
+		debian/tmp/usr/share/doc/markdown/changelog.Debian
+	gzip -9n debian/tmp/usr/share/doc/markdown/changelog.Debian
+	install -m 644 debian/copyright \
+		debian/tmp/usr/share/doc/markdown/copyright
+
+	install -d debian/tmp/DEBIAN
+	dpkg-gencontrol -isp
+	find debian/tmp -newermt "@$$SOURCE_DATE_EPOCH" -print0 | \
+		xargs -0r touch --no-dereference --date="@$$SOURCE_DATE_EPOCH"
+	dpkg-deb --build debian/tmp ..
+
+build: build-indep
+
+build-indep: markdown.1
+
+clean:
+	rm -fr debian/files debian/tmp markdown.1
+
+markdown.1: Markdown.pl
+	pod2man Markdown.pl > markdown.1
+
+.PHONY: binary binary-arch binary-indep build clean
